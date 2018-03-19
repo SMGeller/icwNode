@@ -1,0 +1,37 @@
+{
+  "name": "icwnode",
+  "version": "1.0.0",
+  "description": "Node app for IT/CS Courseware at University of Florida. https://icw.cise.ufl.edu",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/allenwhitedev/icwNode.git"
+  },
+  "keywords": [
+    "node",
+    "express",
+    "mongo",
+    "icw",
+    "ufl",
+    "uf"
+  ],
+  "author": "allenwhitedev",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/allenwhitedev/icwNode/issues"
+  },
+  "homepage": "https://github.com/allenwhitedev/icwNode#readme",
+  "dependencies": {
+    "bcrypt": "^1.0.3",
+    "express": "^4.16.3",
+    "mongodb": "^3.0.4",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "cors": "^2.8.4"
+  }
+}
