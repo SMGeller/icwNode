@@ -1,7 +1,7 @@
 // middleware initialization
 const express = require('express')
-const app = express() 
-app.use( express.json() ) // allow json-encoded bodies in requests (typically for POST/PATCH/DELETE etc.)  
+const app = express()
+app.use( express.json() ) // allow json-encoded bodies in requests (typically for POST/PATCH/DELETE etc.)
 app.use( express.urlencoded({extended: true}) ) // allow url-encoded bodies in requests, {extended: true} allows nested objects while {extended: false} allows only string or array values in the req.body's key-value pairs
 
 // development/production/test config initialization
@@ -31,7 +31,7 @@ else // use default development config
 	saltRounds = 12
 }
 
-// mongodb initialization 
+// mongodb initialization
 const MongoClient = require('mongodb').MongoClient
 const mongod = require('mongod') // mongo daemon
 const mongoServer = new mongod(27017)
@@ -41,18 +41,18 @@ mongoServer.open( err =>
 		console.log('Error opening mongo server (mongo daemon could already be running):', err)
 	else
 		console.log('Successfully opened mongo server')
-		
+
 		console.log('Connecting to mongodb...')
 		connectToMongoDb() // assume mongod is already running if mongo server cannot be opening and connect to mongodb regardless of mongoServer.open() result
 })
-let globalDatabase = null // global variable allowing express routes to interact with database 
+let globalDatabase = null // global variable allowing express routes to interact with database
 function connectToMongoDb()
 {
 	MongoClient.connect(mongoUrl, (err, databases) =>
 	{
-		// mongo 3.4 actually returns databases object containing dbs (including the database name used in mongoUrl)  
+		// mongo 3.4 actually returns databases object containing dbs (including the database name used in mongoUrl)
 		if ( err )
-			throw err // should implement a way to catch this in future 
+			throw err // should implement a way to catch this in future
 		else
 		{
 			globalDatabase = databases.db(databaseName)
@@ -64,23 +64,26 @@ function connectToMongoDb()
 }
 
 // will actually log error to file in future versions
-function logError(error, res) 
-{ 
-	console.log(error) 
+function logError(error, res) {
+	console.log(error)
 	res.status(500).send({error: true, message: 'Error: Something went wrong with the database or server. The error has been logged.'})
 }
+
+var users = require('./routes/users');
+app.use('/users', users);
 
 // -- express routes --
 app.get('/', (req, res) =>
 {
-	res.send({message: `Success! This route will serve icw's react app in the future`})
+	// res.send({message: `Success! This route will serve icw's react app in the future`})
+	res.send("Success! This route will serve icw's react app in the future");
 })
 
 // test routes
-app.get('/test', (req, res) =>
-{
-	res.send({message: `Success! from /test on port ${port} in ${environment}.`})
-})
+app.get('/test', (req, res) => {
+	res.send({message: `Success! from /test on port ${port} in ${environment}.`});
+});
+
 app.get('/api/v1/test', (req, res) =>
 {
 	res.send({message: `Success! from version 1 of the api. ( /api/v1/test ) `})
@@ -108,4 +111,4 @@ app.post('/api/v1/tests', (req, res) => // test mongodb - add a test to database
 			else
 				res.status(201).send({message: `Success: Test created with message '${req.body.message}'`})
 		})
-}) 
+})
