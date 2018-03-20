@@ -1,3 +1,6 @@
+# configuration for mongodb, port, environment, etc. (contains sensitive data)
+.config.js
+
 # Mac OS 
 .DS_Store
 
