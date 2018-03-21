@@ -87,7 +87,7 @@ router.post('/login',
   passport.authenticate('local', {successRedirect:'/', failureRedirect:'/users/login', failureFlash: true}),
   function(req, res) {
     // If this function gets called, authentication was successful.
-    // `req.user` contains the authenticated user.    
+    // `req.user` contains the authenticated user.
   });
 
 passport.serializeUser(function(user, done) {
@@ -103,7 +103,7 @@ passport.deserializeUser(function(id, done) {
 // Logout using Passport
 router.get('/logout', (req, res) => {
   req.logout();
-  res.redirect('/users/login');
+  res.send('You have been logged out');
 });
 
 module.exports = router;
