@@ -9,6 +9,7 @@ const passport = require('passport');
 const app = express()
 app.use( express.json() ) // allow json-encoded bodies in requests (typically for POST/PATCH/DELETE etc.)
 app.use( express.urlencoded({extended: true}) ) // allow url-encoded bodies in requests, {extended: true} allows nested objects while {extended: false} allows only string or array values in the req.body's key-value pairs
+app.use( express.static('build') ) // serve static files from react build
 // return 404 & prevents 403 from authenticateUser for missing routes
 app.use( (req, res, next) => expressRoutes.indexOf(req.path) === -1 ? res.status(404).send({error: true, message: `Error: '${req.path}' route does not exist`}) : next() )
 
@@ -74,7 +75,7 @@ app.get('/', (req, res) => {
 		res.end();
 	}
 	else {
-			req.session.visitCount = 1;s
+			req.session.visitCount = 1;
 			res.send("Success! This route will serve icw's react app in the future");
 	}
 });
