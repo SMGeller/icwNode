@@ -37,6 +37,7 @@ router.post('/register', (req, res) => {
 
   // Log errors on server console and client browser
   if (errors) {
+    req.session.errors = errors;
     console.log("Errors found in registering new user");
     var error_message = '';
     for(var i = 0; i < errors.length; i++){

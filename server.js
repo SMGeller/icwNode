@@ -45,8 +45,8 @@ mongoose.connect(mongoUrl).then(
 // Express Session
 app.use(session({
   secret: 'secret',
-  saveUninitialized: true,
-  resave: true
+	saveUninitialized: false,
+	resave: false
 }));
 
 // Passport Init
@@ -64,7 +64,16 @@ var users = require('./routes/users.routes');
 app.use('/users', users);
 
 app.get('/', (req, res) => {
-	res.send("Success! This route will serve icw's react app in the future");
+	if (req.session.visitCount) {
+		req.session.visitCount++;
+		res.setHeader('Content-Type', 'text/html');
+		res.write('<p>views: ' + req.session.visitCount + '</p>');
+		res.end();
+	}
+	else {
+			req.session.visitCount = 1;
+			res.send("Success! This route will serve icw's react app in the future");
+	}
 });
 
 // test routes
