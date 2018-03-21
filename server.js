@@ -46,7 +46,8 @@ mongoose.connect(mongoUrl).then(
 app.use(session({
   secret: 'secret',
 	saveUninitialized: false,
-	resave: false
+	resave: false,
+	cookie: { secure: true }
 }));
 
 // Passport Init
@@ -71,7 +72,7 @@ app.get('/', (req, res) => {
 		res.end();
 	}
 	else {
-			req.session.visitCount = 1;
+			req.session.visitCount = 1;s
 			res.send("Success! This route will serve icw's react app in the future");
 	}
 });
