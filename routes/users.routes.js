@@ -38,7 +38,11 @@ router.post('/register', (req, res) => {
   // Log errors on server console and client browser
   if (errors) {
     console.log("Errors found in registering new user");
-    res.send("Unable to register new user due to the following errors: \n" + errors);
+    var error_message = '';
+    for(var i = 0; i < errors.length; i++){
+      error_message = error_message + (errors[i]["msg"] + ", ");
+    }
+    res.send(error_message);
   }
   // No errors - Proceed with new user creation
   else {
@@ -53,10 +57,9 @@ router.post('/register', (req, res) => {
 
     User.createUser(newUser, function(err, user) {
           if(err) throw err;
-          console.log(user);
     });
 
-    res.send('New user successfully added!');
+    res.send(`New user successfully added!\n${newUser}`);
   }
 });
 
@@ -84,8 +87,7 @@ router.post('/login',
   passport.authenticate('local', {successRedirect:'/', failureRedirect:'/users/login', failureFlash: true}),
   function(req, res) {
     // If this function gets called, authentication was successful.
-    // `req.user` contains the authenticated user.
-    res.send('Welcome ' + req.user + "!");
+    // `req.user` contains the authenticated user.    
   });
 
 passport.serializeUser(function(user, done) {

@@ -1,5 +1,11 @@
 // middleware initialization
-const express = require('express')
+const express = require('express');
+const path = require('path');
+const mongo = require('mongodb');
+const mongoose = require('mongoose');
+const session = require('express-session');
+const passport = require('passport');
+
 const app = express()
 app.use( express.json() ) // allow json-encoded bodies in requests (typically for POST/PATCH/DELETE etc.)
 app.use( express.urlencoded({extended: true}) ) // allow url-encoded bodies in requests, {extended: true} allows nested objects while {extended: false} allows only string or array values in the req.body's key-value pairs
@@ -31,37 +37,21 @@ else // use default development config
 	saltRounds = 12
 }
 
-// mongodb initialization
-const MongoClient = require('mongodb').MongoClient
-const mongod = require('mongod') // mongo daemon
-const mongoServer = new mongod(27017)
-mongoServer.open( err =>
-{
-	if (err)
-		console.log('Error opening mongo server (mongo daemon could already be running):', err)
-	else
-		console.log('Successfully opened mongo server')
+mongoose.connect(mongoUrl).then(
+	() => {console.log("Successfully connected to mongoDB database")},
+	(err) => {console.log(err)}
+);
 
-		console.log('Connecting to mongodb...')
-		connectToMongoDb() // assume mongod is already running if mongo server cannot be opening and connect to mongodb regardless of mongoServer.open() result
-})
-let globalDatabase = null // global variable allowing express routes to interact with database
-function connectToMongoDb()
-{
-	MongoClient.connect(mongoUrl, (err, databases) =>
-	{
-		// mongo 3.4 actually returns databases object containing dbs (including the database name used in mongoUrl)
-		if ( err )
-			throw err // should implement a way to catch this in future
-		else
-		{
-			globalDatabase = databases.db(databaseName)
-			console.log(`Success! Connected to '${mongoUrl}'`)
+// Express Session
+app.use(session({
+  secret: 'secret',
+  saveUninitialized: true,
+  resave: true
+}));
 
-			app.listen(port, () => console.log(`Node app for icw listening on port ${port} in ${environment}`)) // successfully connected to mongodb, start node app
-		}
-	})
-}
+// Passport Init
+app.use(passport.initialize());
+app.use(passport.session());
 
 // will actually log error to file in future versions
 function logError(error, res) {
@@ -69,25 +59,23 @@ function logError(error, res) {
 	res.status(500).send({error: true, message: 'Error: Something went wrong with the database or server. The error has been logged.'})
 }
 
-var users = require('./routes/users');
+//****** Routing
+var users = require('./routes/users.routes');
 app.use('/users', users);
 
-// -- express routes --
-app.get('/', (req, res) =>
-{
-	// res.send({message: `Success! This route will serve icw's react app in the future`})
+app.get('/', (req, res) => {
 	res.send("Success! This route will serve icw's react app in the future");
-})
+});
 
 // test routes
 app.get('/test', (req, res) => {
 	res.send({message: `Success! from /test on port ${port} in ${environment}.`});
 });
 
-app.get('/api/v1/test', (req, res) =>
-{
+app.get('/api/v1/test', (req, res) => {
 	res.send({message: `Success! from version 1 of the api. ( /api/v1/test ) `})
-})
+});
+
 app.get('/api/v1/tests', (req, res) => // test mongodb - return all documents in 'tests' collection
 {
 	globalDatabase.collection('tests').find( {}, {fields: { _id: 0 } } ).toArray( (err, result) => // return all tests but exclude their _id fields
@@ -98,6 +86,7 @@ app.get('/api/v1/tests', (req, res) => // test mongodb - return all documents in
 			res.send( result )
 	} )
 })
+
 app.post('/api/v1/tests', (req, res) => // test mongodb - add a test to database's 'test' collection
 {
 	console.log('req.body:', req.body)
@@ -112,3 +101,5 @@ app.post('/api/v1/tests', (req, res) => // test mongodb - add a test to database
 				res.status(201).send({message: `Success: Test created with message '${req.body.message}'`})
 		})
 })
+
+app.listen(port, () => console.log(`Node app for icw listening on port ${port} in ${environment}`)) // successfully connected to mongodb, start node app
