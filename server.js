@@ -8,6 +8,7 @@ app.use( express.static('build') ) // serve static files from react build
 app.use( (req, res, next) => expressRoutes.indexOf(req.path) === -1 ? res.status(404).send({error: true, message: `Error: '${req.path}' route does not exist`}) : next() ) 
 
 // development/production/test config initialization
+app.serverInit = false // used to check initialization in tests
 let config = null
 try { config = require('./.config.js') } // load config with sensitive data ()
 catch(e) {
@@ -64,7 +65,11 @@ function connectToMongoDb()
 			globalDatabase = databases.db(databaseName)
 			console.log(`Success! Connected to '${mongoUrl}'`)
 
-			app.listen(port, () => console.log(`Node app for icw listening on port ${port} in ${environment}`)) // successfully connected to mongodb, start node app
+			app.listen(port, () => // successfully connected to mongodb, start node app
+			{
+				console.log(`Node app for icw listening on port ${port} in ${environment}`) 
+				app.serverInit = true // used to check express app has started in tests
+			} ) 
 		}
 	})
 }
@@ -249,3 +254,4 @@ app.post('/api/v1/logout', (req, res) =>
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers
+module.exports = app // default export is express app
