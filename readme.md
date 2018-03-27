@@ -4,6 +4,8 @@ https://icw.cise.ufl.edu
 Start the app in development with "npm start".
 The "npm start" command will install all dependencies, start a mongo server if one is not already running, and start the app if the local machine has valid versions of npm, node, and mongodb installed. 
 (Passing with mongo v3.4.0, node v8.10.0, npm v5.6.0, mongo v3.4.0 -> Build tests will be added in later versions.) 
+Run the test suite with "npm test". The test suite uses the "icwDevelopment" mongo database and currently lacks some configuration. 
+The test suite may have its own database & environment in the future. 
 
 
 ## Production

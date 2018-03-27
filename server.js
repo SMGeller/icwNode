@@ -5,7 +5,7 @@ app.use( express.json() ) // allow json-encoded bodies in requests (typically fo
 app.use( express.urlencoded({extended: true}) ) // allow url-encoded bodies in requests, {extended: true} allows nested objects while {extended: false} allows only string or array values in the req.body's key-value pairs
 app.use( express.static('build') ) // serve static files from react build
 // return 404 & prevents 403 from authenticateUser for missing routes
-app.use( (req, res, next) => expressRoutes.indexOf(req.path) === -1 ? res.status(404).send({error: true, message: `Error: '${req.path}' route does not exist`}) : next() ) 
+app.use( (req, res, next) => checkIfRouteExists(req, res, next) ) 
 
 // development/production/test config initialization
 app.serverInit = false // used to check initialization in tests
@@ -81,18 +81,34 @@ function logError(error, res) // If an undefined result is returned from mongo o
 	res.status(500).send({error: true, message: 'Error: Something went wrong with the database or server. The error has been logged.'})
 }
 
+// send 404 error if express route handler does not exist for request url
+checkIfRouteExists = (req, res, next) =>
+{
+	for ( let i in expressRoutes ) // this should be expanded when routes with multiple params are added
+		if ( expressRoutes[i].indexOf(':') !== -1 && expressRoutes[i].substring(0, expressRoutes[i].indexOf(':') ) === req.path.substring(0, expressRoutes[i].indexOf(':') ) ) 
+	 		return next() // temporary method to handle dynamic routes (express routes with params such as /api/v1/course/:courseId)
+
+	if ( expressRoutes.indexOf(req.path) === -1 && true )
+		res.status(404).send({error: true, message: `Error: '${req.path}' route does not exist`}) // route does not exist, send 404 error
+	else 
+		next() // route exists, allow request
+}
+
 // custom authentication middleware (must app.use( authenticateUser() ) after app.use( cors() ) to avoid error)
 app.use( authenticateUser ) 
 function authenticateUser(req, res, next)
 {
-	// whitelist routes that do not require authentication
-	let whitelistedRoutes = ['/', '/api/v1/', '/api/v1/signup', '/api/v1/login', '/api/v1/logout', '/api/v1/test' ] 
+	let whitelistedRoutes = ['/', '/api/v1/', '/api/v1/signup', '/api/v1/login', '/api/v1/logout', '/api/v1/test'] // whitelist routes that do not require any authentication
+	let teacherRoleRequiredRoutes = [{path: '/api/v1/courses', methods: ['POST']}, {path: '/api/v1/courses/', methods: ['POST']}] // routes that require role of 'teacher' or above (admin > teacher > student)
+
 	if ( ( whitelistedRoutes.indexOf( req.path ) !== -1 ) || ( req.path === '/api/v1/tests' && req.query.requiresAuthentication !== 'true' ) ) // Array.indexOf() return -1 if item is not in array
 		next() // skip authentication
+	else if ( isThisRoleRequired(teacherRoleRequiredRoutes, req, 'teacher') ) // check if route requires 'teacher' role or above
+		verifyUserSession(req.headers.session, 'teacher')
 	else
-		verifyUserSession(req.headers.session)
+		verifyUserSession(req.headers.session, null) // regular authentication (no role specified)
 
-	function verifyUserSession(session)
+	function verifyUserSession(session, roleRequired)
 	{
 		let sessionId = parseValueFromCookie(session, 'sessionId')
 		let userId = parseValueFromCookie(session, 'userId')
@@ -118,7 +134,10 @@ function authenticateUser(req, res, next)
 						if (error)
 							logError(`Error refreshing session for userId '${userId}' using sessionId '${sessionId}' ` + error, res)
 					})
-					next() // authentication successful, move on to route
+					if ( result.role === 'admin' || result.role === roleRequired || !roleRequired  ) // authenticated if user is an admin, has correct role, or no role is required
+						next() // authentication successful, move on to route
+					else
+						res.status(403).send({error: true, message: `Error: You do not have the role required to perform this action.`})
 				}
 			}
 		})		
@@ -129,6 +148,13 @@ function parseValueFromCookie(cookieString, key) // helper function extracts val
 {
 	let keyPortionOfString = RegExp("" + key + "[^;]+").exec(cookieString) // get key followed by anything other than semicolon
 	return decodeURIComponent(!!keyPortionOfString ? keyPortionOfString.toString().replace(/^[^=]+./, '') : '') // return everything after equal sign, otherwise return empty string
+}
+function isThisRoleRequired(thisRoleRequiredRoutes, req, role)
+{
+	for ( let i in thisRoleRequiredRoutes )
+		if ( thisRoleRequiredRoutes[i].path === req.path && thisRoleRequiredRoutes[i].methods.indexOf(req.method) !== -1 ) // check if route requires a role of teacher or higher for the HTTP method used
+			return true // teacher role is required
+	return false // else teacher role is not required
 }
 
 // -- express routes --
@@ -149,15 +175,15 @@ app.get('/api/v1/tests', (req, res) => // test mongodb - return all documents in
 		if ( err )
 			logError(err, res)
 		else
-			res.send( result )
+			res.send(result)
 	} )
 })
 app.post('/api/v1/tests', (req, res) => // test mongodb - add a test to database's 'test' collection
 {
 	if ( !req.body || !req.body.message )
-		res.status(400).send({error: true, message: `Creating a test requires the following valid fields: 'message'`})
+		res.status(400).send({error: true, message: `Creating a test requires the following valid fields in request body: 'message'`})
 	else
-		globalDatabase.collection('tests').insert({message: req.body.message}, (err, result) =>
+		globalDatabase.collection('tests').insert({message: req.body.message, createdAt: Date.now()}, (err, result) =>
 		{
 			if (err)
 				logError(err, res)
@@ -170,7 +196,7 @@ app.post('/api/v1/tests', (req, res) => // test mongodb - add a test to database
 app.post('/api/v1/signup', (req, res) =>
 {
 	if ( !req.body || !req.body.email || !req.body.password )
-		res.status(400).send({error: true, message: `Error: /api/v1/signup requires valid fields: 'email', 'password'`})
+		res.status(400).send({error: true, message: `Error: /api/v1/signup requires valid fields in request body: 'email', 'password'`})
 	else
 		bcrypt.hash( req.body.password, saltRounds, (error, hash) => 
 		{
@@ -189,9 +215,9 @@ app.post('/api/v1/signup', (req, res) =>
 							let expiresAt = new Date().setHours( new Date().getHours() + 1 )
 							let sessionId = uuidv1() // gener
 
-							globalDatabase.collection('users').insertOne({email: req.body.email, password: hash, createdAt: Date.now(), session: { sessionId, expiresAt } }, (err, result) =>
+							globalDatabase.collection('users').insertOne({role: 'student', email: req.body.email, password: hash, createdAt: Date.now(), session: { sessionId, expiresAt } }, (err, result) =>
 							{
-								if (err || !result)
+								if (err || !result) // signup creates 'student' user, for now an user must have their role updated from mongo shell
 								{
 									err ? logError(err, res) : logError('No error, but did not return result from /signup when creating a new user.', res)
 									res.status(422).send({error: true, message: 'Error: Could not create user'})
@@ -206,7 +232,7 @@ app.post('/api/v1/signup', (req, res) =>
 app.post('/api/v1/login', (req, res) => // current implementation of authentication only allows one device/browser to be logged in at a time
 {
 	if ( !req.body || !req.body.email || !req.body.password )
-		res.status(400).send({error: true, message: `Error: /api/v1/login requires valid fields: 'email', 'password'`})
+		res.status(400).send({error: true, message: `Error: /api/v1/login requires valid fields in request body: 'email', 'password'`})
 	else
 		globalDatabase.collection('users').findOne({email: req.body.email}, (err, result) =>
 		{
@@ -237,7 +263,7 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 app.post('/api/v1/logout', (req, res) =>
 {
 	if ( !req.body || !req.body.sessionId || !req.body.userId )
-		res.status(400).send({error: true, message: `Error: /api/v1/logout requires valid fields: 'sessionId', 'userId'`})
+		res.status(400).send({error: true, message: `Error: /api/v1/logout requires valid fields in request body: 'sessionId', 'userId'`})
 	else
 	{
 		if ( !ObjectId.isValid(req.body.userId) ) // verify userId is of valid format for ObjectId, otherwise ugly 500 error will be returned to client
@@ -251,6 +277,45 @@ app.post('/api/v1/logout', (req, res) =>
 				res.send({message: `Success: You have logged out`, invalidatedSessionId: req.body.sessionId})
 		})
 	}
+})
+
+// courses
+app.get('/api/v1/courses', (req, res) => // get courses
+{
+	globalDatabase.collection('courses').find({}).toArray( (err, result) =>
+	{
+		if (err)
+			logError(err)
+		else
+			res.send(result)
+	})
+}) 
+app.post('/api/v1/courses', (req, res) => // create new course
+{
+	if ( !req.body || !req.body.name )
+		res.status(400).send({error: true, message: `Error: /api/v1/courses requires valid fields in request body: 'name'`})
+	else
+		globalDatabase.collection('courses').insertOne({name: req.body.name, items: [], createdAt: Date.now() }, (err, result) =>
+		{
+			if (err)
+				logError(err)
+			else
+				res.send({message: `Success: Course '${req.body.name}' created`})
+		})
+})
+app.post('/api/v1/courses/:courseId', (req, res) =>
+{
+	if ( !req.params.courseId || !req.body || !req.body.type || !req.body.title || !req.body.content || !ObjectId.isValid(req.params.courseId) )
+		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content' and a valid :courseId in url`})
+	else
+		globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
+			{$addToSet: { items: {id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, createdAt: Date.now()} } }, (err, result) =>
+		{
+			if (err)
+				logError(err)
+			else
+				res.send({message: `Success: Added '${req.body.type}' to course with id '${req.params.courseId}'`})
+		})
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers
