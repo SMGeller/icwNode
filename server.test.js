@@ -1,6 +1,6 @@
 // *Note: Tests are in need of async functionality. Timers are a sub-optimal way of waiting for the app to initialize before running tests and an async method of getting information from a response body and then using it in another request body is needed (/logout needs sessionId & userId from /login response body)
 // run all .test.js files with the "npm test" command, refer to https://facebook.github.io/jest/docs/en/getting-started.html to run specific tests or for more info on configuration
-// Starting the express app with app.listen(), creating a test teacher user/test student user/course in the database should all return their own Promise and beforeAll() should await the successful async resolve from each
+// Starting the express app with app.listen(), creating a test data (users, courses, etc) in the database should all return their own Promise. beforeAll() should await the successful async resolve from each
 const request = require('supertest') // used to make http requests with express app in test suite
 const app = require('./server.js')
 const MongoClient = require('mongodb').MongoClient

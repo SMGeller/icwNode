@@ -1,4 +1,4 @@
-This is the React app for the IT/CS Workshop at University of Florida. 
+This is the Node app for the IT/CS Workshop at University of Florida. 
 https://icw.cise.ufl.edu
 
 Start the app in development with "npm start".
