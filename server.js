@@ -223,7 +223,7 @@ app.post('/api/v1/signup', (req, res) =>
 									res.status(422).send({error: true, message: 'Error: Could not create user'})
 								}
 								else
-									res.send({message: `Success: Created user with email '${req.body.email}'`, session: { sessionId, expiresAt, userId: result.ops[0]._id } })
+									res.send({message: `Success: Created user with email '${req.body.email}'`, session: { sessionId, expiresAt, userId: result.ops[0]._id, role: result.ops[0].role } })
 							})  
 						}
 				}) 
@@ -254,7 +254,7 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 							if (updateError || !updateResult)
 								logError(updateError, res)
 							else
-								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId} })
+								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role} })
 						}) 							
 					}					
 				})
