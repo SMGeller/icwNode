@@ -62,9 +62,20 @@ beforeAll( async (done) => // verify app.listen() has been called (and mongodb h
 										if (testCourseError)
 											console.log(`Error: Could not insert testCourse ${testCourseError}`)
 										else
+										{
 											testCourse._id = testCourseResult.ops[0]._id
+										
+											// add test course item to course
+											let testCourseItem = {id: uuidv1(), type: 'lesson', title: 'Test Course Item (Lesson)', content: '<h1>Test Course Item Lesson Header Here</h1>', createdAt: Date.now()} 
+											globalDatabase.collection('courses').update({_id: testCourse._id}, {$addToSet: {items: testCourseItem} }, (updateError, updateResult) =>
+											{
+												if (updateError)
+													console.log(`Error: Could not insert test courseItem into course '${testCourse.name}'`)
+												else
+													testCourse.items.push(testCourseItem)
+											})
+										}
 									})
-
 									done() // start tests, app has initializated
 								}
 							})
@@ -136,8 +147,16 @@ describe('Fetches courses routes', () =>
 	(
 		request(app).post(`/api/v1/courses/${testCourse._id}`).set('Session', testTeacherUserSessionCookie)
 			.send({type: 'announcement', title: 'Project Presentation 2 This Week', content: announcementContent})
-				.then( response => expect(response.statusCode).toBe(200) )
+			.then( response => expect(response.statusCode).toBe(200) )
 	) )
+
+	test(`PATCH /api/v1/courses/${testCourse._id}`, () => // edit existing courseItem
+	{
+		let courseItem = {type: 'lesson', courseItemId: testCourse.items[0].id, content: '<h1>Edit CourseItem Test Header Here</h1>'}
+		
+		return request(app).patch(`/api/v1/courses/${testCourse._id}`).set('Session', testTeacherUserSessionCookie)
+			.send(courseItem).then( response => expect(response.statusCode).toBe(200) )
+	} ) 
 })
 
 afterAll( () => 

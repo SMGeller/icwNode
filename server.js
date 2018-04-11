@@ -99,7 +99,7 @@ app.use( authenticateUser )
 function authenticateUser(req, res, next)
 {
 	let whitelistedRoutes = ['/', '/api/v1/', '/api/v1/signup', '/api/v1/login', '/api/v1/logout', '/api/v1/test'] // whitelist routes that do not require any authentication
-	let teacherRoleRequiredRoutes = [{path: '/api/v1/courses', methods: ['POST']}, {path: '/api/v1/courses/', methods: ['POST']}] // routes that require role of 'teacher' or above (admin > teacher > student)
+	let teacherRoleRequiredRoutes = [{path: '/api/v1/courses', methods: ['POST', 'PATCH']}, {path: '/api/v1/courses/', methods: ['POST']}] // routes that require role of 'teacher' or above (admin > teacher > student)
 
 	if ( ( whitelistedRoutes.indexOf( req.path ) !== -1 ) || ( req.path === '/api/v1/tests' && req.query.requiresAuthentication !== 'true' ) ) // Array.indexOf() return -1 if item is not in array
 		next() // skip authentication
@@ -315,6 +315,40 @@ app.post('/api/v1/courses/:courseId', (req, res) =>
 				logError(err)
 			else
 				res.send({message: `Success: Added '${req.body.type}' to course with id '${req.params.courseId}'`})
+		})
+})
+app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course item (lesson)
+{
+	if ( !req.params.courseId || !req.body || !req.body.courseItemId || !req.body.content || !ObjectId.isValid(req.params.courseId) )
+		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'courseItemId', 'content' and a valid :courseId in url`})		
+	else
+		globalDatabase.collection('courses').findOne({_id: ObjectId(req.params.courseId)}, (err, result) =>
+		{
+			if (err)
+				logError(err)
+			else
+			{	
+				let courseItems = result.items			
+				let courseItem = courseItems.find( courseItem => courseItem.id === req.body.courseItemId )
+				if ( !courseItem )
+					return res.status(400).send({error: true, message: `Error /api/v1/courses/:courseId could not find a courseItem for course '${req.params.courseId}' with courseItemId '${req.body.courseItemId}' `})
+				else
+				{ // different update will have to be performed depending on type if quizzes are editable as well (a field other than content will be modified)
+					courseItem = {...courseItem, content: req.body.content}
+					for ( let i in courseItems )
+						if ( courseItems[i].id === courseItem.id )
+							courseItems[i] = courseItem // replace old course item with course item that has had its content field replaced
+
+					globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId)}, {$set: {items: courseItems} }, (updateErr, updateResult) =>
+					{
+						if ( updateErr )
+							logError(updateErr)
+						else
+							res.send({message: `Success: Course '${req.params.courseId}''s courseItem with courseItemId '${req.body.courseItemId}' has been updated`})
+					})
+				}
+			}
+
 		})
 })
 
