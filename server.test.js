@@ -24,6 +24,7 @@ const mongoUrl = `mongodb://localhost:27017/${databaseName}`
 let testTeacherUser = {email: 'testTeacherEmail', password: 'testTeacherEmail'} // create a test teacher user in database during initialization for use in tests
 let testTeacherUserSessionCookie // describe() runs before beforeAll(), cookie must be declare outside describe() scope
 let testCourse = { name: 'Test Course - Used For Testing', items: [] } // create test course during initialization for use in tests
+let testCourseItemId = uuidv1()
 beforeAll( async (done) => // verify app.listen() has been called (and mongodb has been connected to by express) before running tests
 { 
 	let checkAppInitialization = setInterval( () => 
@@ -66,7 +67,7 @@ beforeAll( async (done) => // verify app.listen() has been called (and mongodb h
 											testCourse._id = testCourseResult.ops[0]._id
 										
 											// add test course item to course
-											let testCourseItem = {id: uuidv1(), type: 'lesson', title: 'Test Course Item (Lesson)', content: '<h1>Test Course Item Lesson Header Here</h1>', createdAt: Date.now()} 
+											let testCourseItem = {id: testCourseItemId, type: 'lesson', title: 'Test Course Item (Lesson)', content: '<h1>Test Course Item Lesson Header Here</h1>', createdAt: Date.now()} 
 											globalDatabase.collection('courses').update({_id: testCourse._id}, {$addToSet: {items: testCourseItem} }, (updateError, updateResult) =>
 											{
 												if (updateError)
@@ -157,6 +158,14 @@ describe('Fetches courses routes', () =>
 		return request(app).patch(`/api/v1/courses/${testCourse._id}`).set('Session', testTeacherUserSessionCookie)
 			.send(courseItem).then( response => expect(response.statusCode).toBe(200) )
 	} ) 
+
+	test(`POST /api/v1/courses/${testCourse._id}/${testCourseItemId}`, () => // add sub course item (course item with parent course item)
+	{
+		let courseItem = {type: 'lesson', title: 'Test Sub Course Item', content: `<h1>Sub Course Item For Course Item with id '${testCourse.items[0].id}'</h1>`}
+
+		return request(app).post(`/api/v1/courses/${testCourse._id}/${testCourse.items[0].id}`).set('Session', testTeacherUserSessionCookie)
+			.send(courseItem).then( response => expect(response.statusCode).toBe(200) )
+	} )
 })
 
 afterAll( () => 

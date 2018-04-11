@@ -303,7 +303,7 @@ app.post('/api/v1/courses', (req, res) => // create new course
 				res.send({message: `Success: Course '${req.body.name}' created`})
 		})
 })
-app.post('/api/v1/courses/:courseId', (req, res) =>
+app.post('/api/v1/courses/:courseId', (req, res) => // create new course item for existing course
 {
 	if ( !req.params.courseId || !req.body || !req.body.type || !req.body.title || !req.body.content || !ObjectId.isValid(req.params.courseId) )
 		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content' and a valid :courseId in url`})
@@ -315,6 +315,32 @@ app.post('/api/v1/courses/:courseId', (req, res) =>
 				logError(err)
 			else
 				res.send({message: `Success: Added '${req.body.type}' to course with id '${req.params.courseId}'`})
+		})
+})
+app.post('/api/v1/courses/:courseId/:parentCourseItemId', (req, res) => // create new sub course item (contains parent course item id field)
+{
+	if ( !req.params.courseId || !ObjectId.isValid(req.params.courseId) || !req.params.parentCourseItemId || !req.body || !req.body.type || !req.body.title || !req.body.content )
+		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content' and a valid :courseId, :parentCourseItemId in url`})
+	else
+		globalDatabase.collection('courses').findOne({_id: ObjectId(req.params.courseId)}, (findErr, findResult) =>
+		{
+			if (findErr)
+				logError(findErr)
+			else
+			{
+				let parentCourseItem = findResult.items.find( courseItem => courseItem.id === req.params.parentCourseItemId)
+				if (findResult && parentCourseItem)
+					globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
+						{$addToSet: { items: {parentCourseItemId: req.params.parentCourseItemId, id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, createdAt: Date.now()} } }, (err, result) =>
+					{
+						if (err)
+							logError(err)
+						else
+							res.send({message: `Success: Added '${req.body.type}' to course with id '${req.params.courseId}'`})
+					})
+				else
+					res.status(400).send({error: true, message: `Error: Could not find course item with id '${parentCourseItemId}'`})				
+			}
 		})
 })
 app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course item (lesson)
