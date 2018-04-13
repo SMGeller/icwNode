@@ -215,7 +215,7 @@ app.post('/api/v1/signup', (req, res) =>
 							let expiresAt = new Date().setHours( new Date().getHours() + 1 )
 							let sessionId = uuidv1() // gener
 
-							globalDatabase.collection('users').insertOne({role: 'student', email: req.body.email, password: hash, createdAt: Date.now(), session: { sessionId, expiresAt } }, (err, result) =>
+							globalDatabase.collection('users').insertOne({role: 'student', email: req.body.email, password: hash, createdAt: Date.now(), session: { sessionId, expiresAt }, completedCourseItems: [] }, (err, result) =>
 							{
 								if (err || !result) // signup creates 'student' user, for now an user must have their role updated from mongo shell
 								{
@@ -376,6 +376,29 @@ app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course ite
 			}
 
 		})
+})
+app.post('/api/v1/users/completedCourseItems', (req, res) =>
+{
+	if ( !req.body || !req.body.courseItemId )
+		res.status(400).send({error: true, message: `Error: /api/v1/users/completedCourses requires valid fields in request body: 'courseItemId'` })
+	else
+	{
+		let userId = parseValueFromCookie(req.headers.session, 'userId')
+		ObjectId.isValid(userId) ? userId = userId : userId = null
+		
+		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt: Date.now() } } }, (err, result) =>
+		{
+			if (err)
+				logError(err)
+			else
+			{
+				if ( result.result.nModified >= 1 )
+					res.send({message: `Success: Completed courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+				else
+					res.status(400).send({error: true, message: `Error: Could not complete courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+			}
+		})		
+	}
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers

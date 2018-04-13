@@ -22,9 +22,14 @@ const databaseName = 'icwDevelopment'
 const mongoUrl = `mongodb://localhost:27017/${databaseName}`
 
 let testTeacherUser = {email: 'testTeacherEmail', password: 'testTeacherEmail'} // create a test teacher user in database during initialization for use in tests
-let testTeacherUserSessionCookie // describe() runs before beforeAll(), cookie must be declare outside describe() scope
+let testTeacherUserSessionCookie // describe() runs before beforeAll(), cookie must be declared outside describe() scope
+
+let testStudentUser = {email: 'testStudentEmail', password: 'testStudentEmail'} // create a test teacher user (shares test teacher password so bcrypt only has to hash one password)
+let testStudentUserSessionCookie  
+
 let testCourse = { name: 'Test Course - Used For Testing', items: [] } // create test course during initialization for use in tests
 let testCourseItemId = uuidv1()
+
 beforeAll( async (done) => // verify app.listen() has been called (and mongodb has been connected to by express) before running tests
 { 
 	let checkAppInitialization = setInterval( () => 
@@ -46,7 +51,8 @@ beforeAll( async (done) => // verify app.listen() has been called (and mongodb h
 							console.log('Could not hash password in test suite initialization')
 						else
 						{
-							testTeacherUser.hashedPassword = hash
+							// create test teacher user
+							testTeacherUser.hashedPassword = hash //
 							globalDatabase.collection('users').insertOne({role: 'teacher', email: testTeacherUser.email, password: testTeacherUser.hashedPassword, createdAt: Date.now(), 
 								session: {sessionId: uuidv1(), expiresAt: Date.now() + 3600000} }, (testTeacherError, testTeacherResult) => // session expires in 1 hour
 							{
@@ -57,27 +63,40 @@ beforeAll( async (done) => // verify app.listen() has been called (and mongodb h
 									testTeacherUser.session = {userId: testTeacherResult.ops[0]._id, sessionId: testTeacherResult.ops[0].session.sessionId, expiresAt: testTeacherResult.ops[0].session.expiresAt }
 									testTeacherUserSessionCookie = `sessionId=${testTeacherUser.session.sessionId}; userId=${testTeacherUser.session.userId};` // this may remove the need for exposing global testTeacherUser variable
 
-									// create test course
-									globalDatabase.collection('courses').insertOne({name: testCourse.name, items: [], createdAt: Date.now()}, (testCourseError, testCourseResult) =>
+									// create test student user
+									globalDatabase.collection('users').insertOne({role: 'student', email: testStudentUser.email, password: testTeacherUser.hashedPassword, createdAt: Date.now(), 
+										session: {sessionId: uuidv1(), expiresAt: Date.now() + 3600000}, completedCourseItems: [] }, (testStudentErr, testStudentResult) => // session expires in 1 hour
 									{
-										if (testCourseError)
-											console.log(`Error: Could not insert testCourse ${testCourseError}`)
+										if (testStudentErr)
+											console.log(`Error: Could not insert testStudentUser: ${testStudentErr}`)
 										else
 										{
-											testCourse._id = testCourseResult.ops[0]._id
-										
-											// add test course item to course
-											let testCourseItem = {id: testCourseItemId, type: 'lesson', title: 'Test Course Item (Lesson)', content: '<h1>Test Course Item Lesson Header Here</h1>', createdAt: Date.now()} 
-											globalDatabase.collection('courses').update({_id: testCourse._id}, {$addToSet: {items: testCourseItem} }, (updateError, updateResult) =>
+											testStudentUser.session = {userId: testStudentResult.ops[0]._id, sessionId: testStudentResult.ops[0].session.sessionId, expiresAt: testStudentResult.ops[0].session.expiresAt }
+											testStudentUserSessionCookie = `sessionId=${testStudentUser.session.sessionId}; userId=${testStudentUser.session.userId};` // this may remove the need for exposing global testStudentUser variable
+
+											// create test course
+											globalDatabase.collection('courses').insertOne({name: testCourse.name, items: [], createdAt: Date.now()}, (testCourseError, testCourseResult) =>
 											{
-												if (updateError)
-													console.log(`Error: Could not insert test courseItem into course '${testCourse.name}'`)
+												if (testCourseError)
+													console.log(`Error: Could not insert testCourse ${testCourseError}`)
 												else
-													testCourse.items.push(testCourseItem)
+												{
+													testCourse._id = testCourseResult.ops[0]._id
+												
+													// add test course item to course
+													let testCourseItem = {id: testCourseItemId, type: 'lesson', title: 'Test Course Item (Lesson)', content: '<h1>Test Course Item Lesson Header Here</h1>', createdAt: Date.now()} 
+													globalDatabase.collection('courses').update({_id: testCourse._id}, {$addToSet: {items: testCourseItem} }, (updateError, updateResult) =>
+													{
+														if (updateError)
+															console.log(`Error: Could not insert test courseItem into course '${testCourse.name}'`)
+														else
+															testCourse.items.push(testCourseItem)
+													})
+												}
 											})
+											done() // start tests, app has initializated
 										}
-									})
-									done() // start tests, app has initializated
+									}) 
 								}
 							})
 						}
@@ -165,6 +184,12 @@ describe('Fetches courses routes', () =>
 
 		return request(app).post(`/api/v1/courses/${testCourse._id}/${testCourse.items[0].id}`).set('Session', testTeacherUserSessionCookie)
 			.send(courseItem).then( response => expect(response.statusCode).toBe(200) )
+	} )
+
+	test(`POST /api/v1/users/completedCourseItems`, () => // complete course item as student
+	{
+		return request(app).post(`/api/v1/users/completedCourseItems`).set('Session', testStudentUserSessionCookie).send({courseItemId: testCourse.items[0].id})
+			.then( response => expect(response.statusCode).toBe(200) )
 	} )
 })
 
