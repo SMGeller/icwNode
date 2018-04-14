@@ -99,7 +99,11 @@ app.use( authenticateUser )
 function authenticateUser(req, res, next)
 {
 	let whitelistedRoutes = ['/', '/api/v1/', '/api/v1/signup', '/api/v1/login', '/api/v1/logout', '/api/v1/test'] // whitelist routes that do not require any authentication
-	let teacherRoleRequiredRoutes = [{path: '/api/v1/courses', methods: ['POST', 'PATCH']}, {path: '/api/v1/courses/', methods: ['POST']}] // routes that require role of 'teacher' or above (admin > teacher > student)
+	let teacherRoleRequiredRoutes = [ 
+		{ path: '/api/v1/courses', methods: ['POST', 'PATCH'] }, 
+		{ path: '/api/v1/courses/', methods: ['POST'] },
+		{ path: '/api/v1/users', methods: ['GET'] }
+	 ] // routes that require role of 'teacher' or above (admin > teacher > student)
 
 	if ( ( whitelistedRoutes.indexOf( req.path ) !== -1 ) || ( req.path === '/api/v1/tests' && req.query.requiresAuthentication !== 'true' ) ) // Array.indexOf() return -1 if item is not in array
 		next() // skip authentication
@@ -376,6 +380,18 @@ app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course ite
 			}
 
 		})
+})
+
+// users
+app.get('/api/v1/users', (req, res) =>
+{
+	globalDatabase.collection('users').find({}, {fields: {password: 0, session: 0} } ).toArray( (findUsersErr, findUsersResult) => // return all users (exclude sensitive fields)
+	{
+		if (findUsersErr)
+			logError(findUsersErr)
+		else
+			res.send(findUsersResult)
+	})
 })
 app.post('/api/v1/users/completedCourseItems', (req, res) =>
 {

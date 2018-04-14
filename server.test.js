@@ -185,12 +185,25 @@ describe('Fetches courses routes', () =>
 		return request(app).post(`/api/v1/courses/${testCourse._id}/${testCourse.items[0].id}`).set('Session', testTeacherUserSessionCookie)
 			.send(courseItem).then( response => expect(response.statusCode).toBe(200) )
 	} )
+})
+
+describe('Fetches users routes', () =>
+{
+	test(`GET /api/v1/users (as student)`, () => // student should be denied permission to GET /users
+	(
+		request(app).get(`/api/v1/users`).set('Session', testStudentUserSessionCookie).then( response => expect(response.statusCode).toBe(403) )
+	) )
+
+	test(`GET /api/v1/users (as teacher)`, () => // 'teacher' can fetch all users
+	(
+		request(app).get('/api/v1/users').set('Session', testTeacherUserSessionCookie).then( response => expect(response.body.length).toBeGreaterThanOrEqual(1) )
+	) )
 
 	test(`POST /api/v1/users/completedCourseItems`, () => // complete course item as student
 	{
 		return request(app).post(`/api/v1/users/completedCourseItems`).set('Session', testStudentUserSessionCookie).send({courseItemId: testCourse.items[0].id})
 			.then( response => expect(response.statusCode).toBe(200) )
-	} )
+	} )	
 })
 
 afterAll( () => 
