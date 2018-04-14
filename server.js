@@ -386,19 +386,33 @@ app.post('/api/v1/users/completedCourseItems', (req, res) =>
 		let userId = parseValueFromCookie(req.headers.session, 'userId')
 		ObjectId.isValid(userId) ? userId = userId : userId = null
 		
-		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt: Date.now() } } }, (err, result) =>
+		globalDatabase.collection('users').findOne({_id: ObjectId(userId)}, (findErr, findResult) =>
 		{
-			if (err)
-				logError(err)
+			if (findErr)
+				logError(findErr)
 			else
 			{
-				if ( result.result.nModified >= 1 )
-					res.send({message: `Success: Completed courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+				if ( findResult.completedCourseItems.find( completedCourseItem => completedCourseItem.courseItemId === req.body.courseItemId ) )
+					return res.status(409).send({error: true, message: `Error: Course item with id '${req.body.courseItemId}' has already been completed for user with id '${userId}'`})
 				else
-					res.status(400).send({error: true, message: `Error: Could not complete courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+				{
+		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt: Date.now() } } }, (err, result) =>
+					{
+						if (err)
+							logError(err)
+						else
+						{
+							if ( result.result.nModified >= 1 )
+								res.send({message: `Success: Completed courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+							else
+								res.status(400).send({error: true, message: `Error: Could not complete courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+						}
+					})		
+				}
 			}
-		})		
-	}
+		})
+
+		}
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers
