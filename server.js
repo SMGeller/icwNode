@@ -412,14 +412,15 @@ app.post('/api/v1/users/completedCourseItems', (req, res) =>
 					return res.status(409).send({error: true, message: `Error: Course item with id '${req.body.courseItemId}' has already been completed for user with id '${userId}'`})
 				else
 				{
-		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt: Date.now() } } }, (err, result) =>
+					let completedAt = Date.now() // return completedAt to user (so client/server completedAt dates are the same)
+		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt } } }, (err, result) =>
 					{
 						if (err)
 							logError(err)
 						else
 						{
 							if ( result.result.nModified >= 1 )
-								res.send({message: `Success: Completed courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+								res.send({ completedAt, message: `Success: Completed courseItem with id '${req.body.courseItemId}' for user with id ${userId}` })
 							else
 								res.status(400).send({error: true, message: `Error: Could not complete courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
 						}
