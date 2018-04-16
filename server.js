@@ -258,7 +258,7 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 							if (updateError || !updateResult)
 								logError(updateError, res)
 							else
-								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role} })
+								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role}, completedCourseItems: result.completedCourseItems })
 						}) 							
 					}					
 				})
