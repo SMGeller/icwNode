@@ -311,9 +311,11 @@ app.post('/api/v1/courses/:courseId', (req, res) => // create new course item fo
 {
 	if ( !req.params.courseId || !req.body || !req.body.type || !req.body.title || !req.body.content || !ObjectId.isValid(req.params.courseId) )
 		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content' and a valid :courseId in url`})
+	else if ( req.body.type === 'quiz' && !req.body.problems )
+			res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content', 'problems' and a valid :courseId in url`})
 	else
 		globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
-			{$addToSet: { items: {id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, createdAt: Date.now()} } }, (err, result) =>
+			{$addToSet: { items: {id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, problems: req.body.problems, createdAt: Date.now()} } }, (err, result) =>
 		{
 			if (err)
 				logError(err)
@@ -325,6 +327,8 @@ app.post('/api/v1/courses/:courseId/:parentCourseItemId', (req, res) => // creat
 {
 	if ( !req.params.courseId || !ObjectId.isValid(req.params.courseId) || !req.params.parentCourseItemId || !req.body || !req.body.type || !req.body.title || !req.body.content )
 		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content' and a valid :courseId, :parentCourseItemId in url`})
+	else if ( req.body.type === 'quiz' && !req.body.problems )
+		res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content', 'problems' and a valid :courseId, :parentCourseItemId in url`})
 	else
 		globalDatabase.collection('courses').findOne({_id: ObjectId(req.params.courseId)}, (findErr, findResult) =>
 		{
@@ -335,7 +339,7 @@ app.post('/api/v1/courses/:courseId/:parentCourseItemId', (req, res) => // creat
 				let parentCourseItem = findResult.items.find( courseItem => courseItem.id === req.params.parentCourseItemId)
 				if (findResult && parentCourseItem)
 					globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
-						{$addToSet: { items: {parentCourseItemId: req.params.parentCourseItemId, id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, createdAt: Date.now()} } }, (err, result) =>
+						{$addToSet: { items: {parentCourseItemId: req.params.parentCourseItemId, id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, problems: req.body.problems, createdAt: Date.now()} } }, (err, result) =>
 					{
 						if (err)
 							logError(err)
@@ -364,7 +368,7 @@ app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course ite
 					return res.status(400).send({error: true, message: `Error /api/v1/courses/:courseId could not find a courseItem for course '${req.params.courseId}' with courseItemId '${req.body.courseItemId}' `})
 				else
 				{ // different update will have to be performed depending on type if quizzes are editable as well (a field other than content will be modified)
-					courseItem = {...courseItem, content: req.body.content}
+					courseItem = {...courseItem, content: req.body.content, problems: req.body.problems}
 					for ( let i in courseItems )
 						if ( courseItems[i].id === courseItem.id )
 							courseItems[i] = courseItem // replace old course item with course item that has had its content field replaced
@@ -413,7 +417,8 @@ app.post('/api/v1/users/completedCourseItems', (req, res) =>
 				else
 				{
 					let completedAt = Date.now() // return completedAt to user (so client/server completedAt dates are the same)
-		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt } } }, (err, result) =>
+					let grade = req.body.grade || 1 // non-quizzes default to 100% grade
+		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt, grade } } }, (err, result) =>
 					{
 						if (err)
 							logError(err)
