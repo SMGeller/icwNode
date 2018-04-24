@@ -102,7 +102,8 @@ function authenticateUser(req, res, next)
 	let teacherRoleRequiredRoutes = [ 
 		{ path: '/api/v1/courses', methods: ['POST', 'PATCH'] }, 
 		{ path: '/api/v1/courses/', methods: ['POST'] },
-		{ path: '/api/v1/users', methods: ['GET'] }
+		{ path: '/api/v1/users', methods: ['GET'] },
+		{ path: '/api/v1/users/assignedCourseItems', methods: ['POST'] }
 	 ] // routes that require role of 'teacher' or above (admin > teacher > student)
 
 	if ( ( whitelistedRoutes.indexOf( req.path ) !== -1 ) || ( req.path === '/api/v1/tests' && req.query.requiresAuthentication !== 'true' ) ) // Array.indexOf() return -1 if item is not in array
@@ -219,7 +220,8 @@ app.post('/api/v1/signup', (req, res) =>
 							let expiresAt = new Date().setHours( new Date().getHours() + 1 )
 							let sessionId = uuidv1() // gener
 
-							globalDatabase.collection('users').insertOne({role: 'student', email: req.body.email, password: hash, createdAt: Date.now(), session: { sessionId, expiresAt }, completedCourseItems: [] }, (err, result) =>
+							globalDatabase.collection('users').insertOne({role: 'student', email: req.body.email, password: hash, createdAt: Date.now(), 
+								session: { sessionId, expiresAt }, completedCourseItems: [], assignedCourseItems: [] }, (err, result) =>
 							{
 								if (err || !result) // signup creates 'student' user, for now an user must have their role updated from mongo shell
 								{
@@ -258,7 +260,8 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 							if (updateError || !updateResult)
 								logError(updateError, res)
 							else
-								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role}, completedCourseItems: result.completedCourseItems })
+								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role}, 
+									completedCourseItems: result.completedCourseItems, assignedCourseItems: result.assignedCourseItems })
 						}) 							
 					}					
 				})
@@ -433,8 +436,45 @@ app.post('/api/v1/users/completedCourseItems', (req, res) =>
 				}
 			}
 		})
-
-		}
+	}
+})
+app.post('/api/v1/users/assignedCourseItems', (req, res) => // assign course item to student user
+{
+	if ( !req.body || !req.body.courseItemId || !req.body.userId )
+		res.status(400).send({error: true, message: `Error: /api/v1/users/assignedCourseItems requires valid fields in request body: 'courseItemId', 'userId'` })
+	else
+	{
+		let userId = req.body.userId
+		ObjectId.isValid(userId) ? userId = userId : userId = null
+		
+		globalDatabase.collection('users').findOne({_id: ObjectId(userId)}, (findErr, findResult) =>
+		{
+			if (findErr)
+				logError(findErr)
+			else
+			{
+				if ( findResult.assignedCourseItems.find( assignedCourseItem => assignedCourseItem.courseItemId === req.body.courseItemId ) )
+					return res.status(409).send({error: true, message: `Error: Course item with id '${req.body.courseItemId}' has already been completed for user with id '${userId}'`})
+				else
+				{
+					let completedAt = Date.now() // return completedAt to user (so client/server completedAt dates are the same)
+			
+		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {assignedCourseItems: { courseItemId: req.body.courseItemId, completedAt } } }, (err, result) =>
+					{
+						if (err)
+							logError(err)
+						else
+						{
+							if ( result.result.nModified >= 1 )
+								res.send({ completedAt, message: `Success: Assigned courseItem with id '${req.body.courseItemId}' for user with id ${userId}` })
+							else
+								res.status(400).send({error: true, message: `Error: Could not assign courseItem with id '${req.body.courseItemId}' for user with id ${userId}`})
+						}
+					})		
+				}
+			}
+		})
+	}
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers
