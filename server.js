@@ -483,7 +483,7 @@ app.patch('/api/v1/users/role', (req, res) =>
 	if ( !req.body || !req.body.role || !validRoles.includes(req.body.role) || !req.body.userId || !ObjectId.isValid(req.body.userId))
 		res.status(400).send({error: true, message: `Error: /api/v1/users/role requires valid fields in request body: 'role' ('teacher' or 'student'), 'userId' (userId must be valid)`})
 	else
-		globalDatabase.collection('users').update({_id: ObjectId(req.body.userId)}, {$set: {'session.role': req.body.role} }, (err, result) =>
+		globalDatabase.collection('users').update({_id: ObjectId(req.body.userId)}, {$set: {role: req.body.role} }, (err, result) =>
 		{
 			if (err)
 				logError(err)
