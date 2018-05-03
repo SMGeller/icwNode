@@ -204,6 +204,11 @@ describe('Fetches users routes', () =>
 		return request(app).post(`/api/v1/users/completedCourseItems`).set('Session', testStudentUserSessionCookie).send({courseItemId: testCourse.items[0].id})
 			.then( response => expect(response.statusCode).toBe(200) )
 	} )	
+
+	test(`PATCH /api/v1/users/role`, () => ( // change test student role to 'teacher'
+		request(app).patch(`/api/v1/users/role`).set('Session', testTeacherUserSessionCookie).send({userId: testStudentUser.session.userId, role: 'teacher'})
+			.then( response => expect(response.statusCode).toBe(200) )
+	) )
 })
 
 afterAll( () => 

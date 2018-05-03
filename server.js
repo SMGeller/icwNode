@@ -103,7 +103,8 @@ function authenticateUser(req, res, next)
 		{ path: '/api/v1/courses', methods: ['POST', 'PATCH'] }, 
 		{ path: '/api/v1/courses/', methods: ['POST'] },
 		{ path: '/api/v1/users', methods: ['GET'] },
-		{ path: '/api/v1/users/assignedCourseItems', methods: ['POST'] }
+		{ path: '/api/v1/users/assignedCourseItems', methods: ['POST'] },
+		{ path: '/api/v1/users/role', methods: ['PATCH'] }
 	 ] // routes that require role of 'teacher' or above (admin > teacher > student)
 
 	if ( ( whitelistedRoutes.indexOf( req.path ) !== -1 ) || ( req.path === '/api/v1/tests' && req.query.requiresAuthentication !== 'true' ) ) // Array.indexOf() return -1 if item is not in array
@@ -475,6 +476,21 @@ app.post('/api/v1/users/assignedCourseItems', (req, res) => // assign course ite
 			}
 		})
 	}
+})
+app.patch('/api/v1/users/role', (req, res) =>
+{
+	let validRoles = ['student', 'teacher']
+	if ( !req.body || !req.body.role || !validRoles.includes(req.body.role) || !req.body.userId || !ObjectId.isValid(req.body.userId))
+		res.status(400).send({error: true, message: `Error: /api/v1/users/role requires valid fields in request body: 'role' ('teacher' or 'student'), 'userId' (userId must be valid)`})
+	else
+		globalDatabase.collection('users').update({_id: ObjectId(req.body.userId)}, {$set: {'session.role': req.body.role} }, (err, result) =>
+		{
+			if (err)
+				logError(err)
+			else
+				res.send({message: `Success: Assigned role '${req.body.role}' to user with id ${req.body.userId}`})
+		})
+
 })
 
 const expressRoutes = app._router.stack.filter(r => r.route).map(r => r.route.path) // must be defined after express route handlers
