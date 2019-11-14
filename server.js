@@ -259,10 +259,16 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 						globalDatabase.collection('users').update({_id: result._id}, {$set: { session } }, (updateError, updateResult) => // generate new session for user (result._id is already an ObjectId) 
 						{
 							if (updateError || !updateResult)
+							{
 								logError(updateError, res)
+								console.log(updateError)
+							}
 							else
+							{
+								console.log("Login Successful")
 								res.send({message: `Success: Logged in user with email '${req.body.email}'`, session: {...session, userId, role: result.role}, 
 									completedCourseItems: result.completedCourseItems, assignedCourseItems: result.assignedCourseItems })
+							}
 						}) 							
 					}					
 				})

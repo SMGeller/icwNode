@@ -6,7 +6,7 @@ const app = require('./server.js')
 const MongoClient = require('mongodb').MongoClient
 const bcrypt = require('bcrypt') // used for hashing passwords
 const uuidv1 = require('uuid/v1') // generates unique UUIDs to use as session ids
-
+let config = null
 try { config = require('./.config.js') } // load config with sensitive data ()
 catch(e) {
 	if ( e instanceof Error && e.code === 'MODULE_NOT_FOUND' )
