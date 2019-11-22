@@ -135,7 +135,7 @@ function authenticateUser(req, res, next)
 					// refresh session expiration to last an hour from now (date of last backend operation)
 					let now = new Date()
 					let expiresAt = now.setHours( now.getHours() + 1 )  // session expires in 1 hour 
-					globalDatabase.collection('users').update( {_id: ObjectId(userId), 'session.sessionId': sessionId}, {$set: { 'session.expiresAt': expiresAt } }, (error, updateExpirationResult) =>
+					globalDatabase.collection('users').updateOne( {_id: ObjectId(userId), 'session.sessionId': sessionId}, {$set: { 'session.expiresAt': expiresAt } }, (error, updateExpirationResult) =>
 					{
 						if (error)
 							logError(`Error refreshing session for userId '${userId}' using sessionId '${sessionId}' ` + error, res)
@@ -176,7 +176,7 @@ app.get('/api/v1/test', (req, res) =>
 })
 app.get('/api/v1/tests', (req, res) => // test mongodb - return all documents in 'tests' collection, can toggle requiresAuthentication to test authentication
 {
-	globalDatabase.collection('tests').find( {}, {fields: { _id: 0 } } ).toArray( (err, result) => // return all tests but exclude their _id fields
+	globalDatabase.collection('tests').find( {}, { _id: 0 } ).toArray( (err, result) => // return all tests but exclude their _id fields
 	{
 		if ( err )
 			logError(err, res)
@@ -256,7 +256,7 @@ app.post('/api/v1/login', (req, res) => // current implementation of authenticat
 						let now = new Date()
 						let session = { sessionId: uuidv1(), expiresAt: now.setHours( now.getHours() + 1 ) } // session expires in 1 hour 
 						  
-						globalDatabase.collection('users').update({_id: result._id}, {$set: { session } }, (updateError, updateResult) => // generate new session for user (result._id is already an ObjectId) 
+						globalDatabase.collection('users').updateOne({_id: result._id}, {$set: { session } }, (updateError, updateResult) => // generate new session for user (result._id is already an ObjectId) 
 						{
 							if (updateError || !updateResult)
 							{
@@ -283,7 +283,7 @@ app.post('/api/v1/logout', (req, res) =>
 		if ( !ObjectId.isValid(req.body.userId) ) // verify userId is of valid format for ObjectId, otherwise ugly 500 error will be returned to client
 			return res.status(403).send({error: true, message: `Error: Could not authenticate user with invalid userId format ('${userId}') and sessionId '${sessionId}' `})
 		
-		globalDatabase.collection('users').update({_id: ObjectId(req.body.userId), 'session.sessionId': req.body.sessionId}, {$set: { 'session.sessionId': null, 'session.expiresAt': null } }, (err, result) =>
+		globalDatabase.collection('users').updateOne({_id: ObjectId(req.body.userId), 'session.sessionId': req.body.sessionId}, {$set: { 'session.sessionId': null, 'session.expiresAt': null } }, (err, result) =>
 		{
 			if (err)
 				logError(err, res)
@@ -324,7 +324,7 @@ app.post('/api/v1/courses/:courseId', (req, res) => // create new course item fo
 	else if ( req.body.type === 'quiz' && !req.body.problems )
 			res.status(400).send({error: true, message: `Error: /api/v1/courses/:courseId requires valid fields in request body: 'type', 'title', 'content', 'problems' and a valid :courseId in url`})
 	else
-		globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
+		globalDatabase.collection('courses').updateOne({_id: ObjectId(req.params.courseId) }, 
 			{$addToSet: { items: {id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, problems: req.body.problems, createdAt: Date.now()} } }, (err, result) =>
 		{
 			if (err)
@@ -348,7 +348,7 @@ app.post('/api/v1/courses/:courseId/:parentCourseItemId', (req, res) => // creat
 			{
 				let parentCourseItem = findResult.items.find( courseItem => courseItem.id === req.params.parentCourseItemId)
 				if (findResult && parentCourseItem)
-					globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId) }, 
+					globalDatabase.collection('courses').updateOne({_id: ObjectId(req.params.courseId) }, 
 						{$addToSet: { items: {parentCourseItemId: req.params.parentCourseItemId, id: uuidv1(), type: req.body.type, title: req.body.title, content: req.body.content, problems: req.body.problems, createdAt: Date.now()} } }, (err, result) =>
 					{
 						if (err)
@@ -383,7 +383,7 @@ app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course ite
 						if ( courseItems[i].id === courseItem.id )
 							courseItems[i] = courseItem // replace old course item with course item that has had its content field replaced
 
-					globalDatabase.collection('courses').update({_id: ObjectId(req.params.courseId)}, {$set: {items: courseItems} }, (updateErr, updateResult) =>
+					globalDatabase.collection('courses').updateOne({_id: ObjectId(req.params.courseId)}, {$set: {items: courseItems} }, (updateErr, updateResult) =>
 					{
 						if ( updateErr )
 							logError(updateErr)
@@ -399,7 +399,7 @@ app.patch('/api/v1/courses/:courseId', (req, res) => // edit existing course ite
 // users
 app.get('/api/v1/users', (req, res) =>
 {
-	globalDatabase.collection('users').find({}, {fields: {password: 0, session: 0} } ).toArray( (findUsersErr, findUsersResult) => // return all users (exclude sensitive fields)
+	globalDatabase.collection('users').find({}, {password: 0, session: 0} ).toArray( (findUsersErr, findUsersResult) => // return all users (exclude sensitive fields)
 	{
 		if (findUsersErr)
 			logError(findUsersErr)
@@ -428,7 +428,7 @@ app.post('/api/v1/users/completedCourseItems', (req, res) =>
 				{
 					let completedAt = Date.now() // return completedAt to user (so client/server completedAt dates are the same)
 					let grade = req.body.grade || 1 // non-quizzes default to 100% grade
-		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt, grade } } }, (err, result) =>
+		  		globalDatabase.collection('users').updateOne({_id: ObjectId(userId) }, {$addToSet: {completedCourseItems: { courseItemId: req.body.courseItemId, completedAt, grade } } }, (err, result) =>
 					{
 						if (err)
 							logError(err)
@@ -466,7 +466,7 @@ app.post('/api/v1/users/assignedCourseItems', (req, res) => // assign course ite
 				{
 					let completedAt = Date.now() // return completedAt to user (so client/server completedAt dates are the same)
 			
-		  		globalDatabase.collection('users').update({_id: ObjectId(userId) }, {$addToSet: {assignedCourseItems: { courseItemId: req.body.courseItemId, completedAt } } }, (err, result) =>
+		  		globalDatabase.collection('users').updateOne({_id: ObjectId(userId) }, {$addToSet: {assignedCourseItems: { courseItemId: req.body.courseItemId, completedAt } } }, (err, result) =>
 					{
 						if (err)
 							logError(err)
@@ -489,7 +489,7 @@ app.patch('/api/v1/users/role', (req, res) =>
 	if ( !req.body || !req.body.role || !validRoles.includes(req.body.role) || !req.body.userId || !ObjectId.isValid(req.body.userId))
 		res.status(400).send({error: true, message: `Error: /api/v1/users/role requires valid fields in request body: 'role' ('teacher' or 'student'), 'userId' (userId must be valid)`})
 	else
-		globalDatabase.collection('users').update({_id: ObjectId(req.body.userId)}, {$set: {role: req.body.role} }, (err, result) =>
+		globalDatabase.collection('users').updateOne({_id: ObjectId(req.body.userId)}, {$set: {role: req.body.role} }, (err, result) =>
 		{
 			if (err)
 				logError(err)
