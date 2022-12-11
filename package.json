@@ -28,7 +28,7 @@
   "homepage": "https://github.com/allenwhitedev/icwNode#readme",
   "dependencies": {
     "bcrypt": "^3.0.6",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "express-validator": "^6.2.0",
     "mongod": "^2.0.0",
     "mongodb": "^3.3.3",
